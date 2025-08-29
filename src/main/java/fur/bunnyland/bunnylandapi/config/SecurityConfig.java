@@ -13,9 +13,11 @@ public class SecurityConfig {
                 http
                         .csrf(csrf -> csrf.disable())
                         .authorizeHttpRequests(authorize -> authorize
-                                .requestMatchers("/api/health").permitAll()
+                                .requestMatchers("/api/health", "/swagger-ui/**",
+                                        "/v3/api-docs/**").permitAll()
                                 .anyRequest().authenticated())
-                        .httpBasic();
-                return http.build();
+                        .httpBasic(h -> h.disable());
+            //        http.httpBasic(Customizer.withDefaults()); // optional; JWT handles auth
+            return http.build();
         }
 }

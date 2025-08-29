@@ -1,0 +1,15 @@
+services:
+  bunnyland-db:
+    image: postgres:16
+    container_name: bunnyland-db
+    environment:
+      POSTGRES_USER: bunny
+      POSTGRES_PASSWORD: bunny123
+      POSTGRES_DB: bunnyland
+    ports:
+      - "5433:5432"
+    volumes:
+      - bunnyland_pg:/var/lib/postgresql/data
+
+volumes:
+  bunnyland_pg:

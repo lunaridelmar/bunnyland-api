@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import fur.bunnyland.bunnylandapi.config.SecurityConfig;
-import fur.bunnyland.bunnylandapi.controller.HealthController;
+import fur.bunnyland.bunnylandapi.api.controller.HealthController;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;

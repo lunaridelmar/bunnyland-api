@@ -1,4 +1,4 @@
-package fur.bunnyland.bunnylandapi.controller;
+package fur.bunnyland.bunnylandapi.api.controller;
 
 import java.util.Map;
 

@@ -22,3 +22,12 @@ springdoc:
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
+
+security:
+  jwt:
+    access:
+      secret: ${ACCESS_SECRET:change-me}
+      ttl-seconds: 900
+    refresh:
+      secret: ${REFRESH_SECRET:change-me-too}
+      ttl-seconds: 604800

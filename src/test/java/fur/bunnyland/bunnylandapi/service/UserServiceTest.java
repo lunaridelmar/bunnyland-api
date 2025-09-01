@@ -1,11 +1,11 @@
 package fur.bunnyland.bunnylandapi.service;
 
-import fur.bunnyland.bunnylandapi.api.dto.RegisterRequest;
-import fur.bunnyland.bunnylandapi.api.dto.RegisterResponse;
-import fur.bunnyland.bunnylandapi.api.dto.Role;
+import fur.bunnyland.bunnylandapi.api.dto.*;
+import fur.bunnyland.bunnylandapi.domain.ErrorCode;
 import fur.bunnyland.bunnylandapi.domain.ResponseObject;
 import fur.bunnyland.bunnylandapi.domain.User;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
+import fur.bunnyland.bunnylandapi.security.JwtUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -15,6 +15,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+
+import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -30,6 +33,9 @@ class UserServiceTest {
 
     @InjectMocks
     private UserService userService;
+
+    @Mock
+    private JwtUtil jwtUtil;
 
     @Test
     void registerOwnerReturnsConflictWhenEmailTaken() {
@@ -70,4 +76,78 @@ class UserServiceTest {
         assertThat(saved.getPasswordHash()).isEqualTo("hashed");
         assertThat(saved.getRoles()).containsExactly("OWNER");
     }
+
+    @Test
+    void loginReturnsUnauthorizedWhenUserNotFound() {
+        LoginRequest req = new LoginRequest("nouser@example.com", "pass");
+        when(userRepository.findByEmailIgnoreCase("nouser@example.com")).thenReturn(Optional.empty());
+
+        var result = userService.login(req);
+
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(result.error().code()).isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+        verify(jwtUtil, never()).generateAccessToken(any(), any(), any());
+        verify(jwtUtil, never()).generateRefreshToken(any(), any());
+    }
+
+    @Test
+    void loginReturnsUnauthorizedWhenPasswordInvalid() {
+        var user = new User();
+        user.setId(10L);
+        user.setEmail("kate@example.com");
+        user.setPasswordHash("hashed");
+        user.setRoles(Set.of("OWNER"));
+
+        LoginRequest req = new LoginRequest("kate@example.com", "wrong");
+        when(userRepository.findByEmailIgnoreCase("kate@example.com"))
+                .thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+
+        var result = userService.login(req);
+
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(result.error().code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS);
+        verify(jwtUtil, never()).generateAccessToken(any(), any(), any());
+        verify(jwtUtil, never()).generateRefreshToken(any(), any());
+    }
+
+    @Test
+    void loginReturnsTokensAndExpiryOnSuccess() {
+        var user = new User();
+        user.setId(42L);
+        user.setEmail("admin@bunnyland.com");
+        user.setPasswordHash("hashed");
+        user.setRoles(Set.of("ADMIN"));
+
+        LoginRequest req = new LoginRequest("admin@bunnyland.com", "admin123");
+        when(userRepository.findByEmailIgnoreCase("admin@bunnyland.com"))
+                .thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("admin123", "hashed")).thenReturn(true);
+
+        when(jwtUtil.generateAccessToken(42L, "admin@bunnyland.com", Set.of("ADMIN")))
+                .thenReturn("access-token");
+        when(jwtUtil.generateRefreshToken(42L, "admin@bunnyland.com"))
+                .thenReturn("refresh-token");
+        when(jwtUtil.getAccessTtlSeconds()).thenReturn(900L);
+
+        var result = userService.login(req);
+
+        assertThat(result.hasError()).isFalse();
+        LoginResponse body = result.body();
+        assertThat(body).isNotNull();
+        assertThat(body.id()).isEqualTo(42L);
+        assertThat(body.email()).isEqualTo("admin@bunnyland.com");
+        assertThat(body.roles()).containsExactlyInAnyOrder("ADMIN");
+        assertThat(body.accessToken()).isEqualTo("access-token");
+        assertThat(body.refreshToken()).isEqualTo("refresh-token");
+        assertThat(body.expiresIn()).isEqualTo(900L);
+
+        verify(jwtUtil).generateAccessToken(42L, "admin@bunnyland.com", Set.of("ADMIN"));
+        verify(jwtUtil).generateRefreshToken(42L, "admin@bunnyland.com");
+        verify(jwtUtil).getAccessTtlSeconds();
+    }
+
 }

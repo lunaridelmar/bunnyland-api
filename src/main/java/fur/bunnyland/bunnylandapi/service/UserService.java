@@ -1,27 +1,30 @@
 package fur.bunnyland.bunnylandapi.service;
 
-import fur.bunnyland.bunnylandapi.api.dto.RegisterRequest;
-import fur.bunnyland.bunnylandapi.api.dto.RegisterResponse;
-import fur.bunnyland.bunnylandapi.api.dto.Role;
+import fur.bunnyland.bunnylandapi.api.dto.*;
 import fur.bunnyland.bunnylandapi.domain.MessageError;
 import fur.bunnyland.bunnylandapi.domain.ResponseObject;
 import fur.bunnyland.bunnylandapi.domain.User;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
+import fur.bunnyland.bunnylandapi.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.Set;
 
-import static fur.bunnyland.bunnylandapi.domain.ErrorCode.EMAIL_TAKEN;
+import static fur.bunnyland.bunnylandapi.domain.ErrorCode.*;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
+    @Transactional
     public ResponseObject<RegisterResponse> registerOwner(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             return ResponseObject.fail(
@@ -47,5 +50,30 @@ public class UserService {
                 saved.getCountry(),
                 Set.of(Role.OWNER));
         return ResponseObject.ok(response);
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseObject<LoginResponse> login(LoginRequest request) {
+        Optional<User> userOptional = userRepository.findByEmailIgnoreCase(request.email());
+        if (userOptional.isEmpty()) {
+            return ResponseObject.fail(
+                    new MessageError(HttpStatus.UNAUTHORIZED,
+                            USER_NOT_FOUND,
+                            "User not found",
+                            "Register first or enter with different email"));
+        }
+        User user = userOptional.get();
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            return ResponseObject.fail(
+                    new MessageError(HttpStatus.UNAUTHORIZED,
+                            INVALID_CREDENTIALS,
+                            "Invalid email or password",
+                            "Check the password and email you have entered"));
+        }
+        String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getEmail(), user.getRoles());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getId(), user.getEmail());
+        long expiresIn      = jwtUtil.getAccessTtlSeconds();
+
+        return ResponseObject.ok(new LoginResponse(user.getId(), user.getEmail(), user.getRoles(), accessToken, refreshToken, expiresIn));
     }
 }

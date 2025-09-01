@@ -1,5 +1,7 @@
 package fur.bunnyland.bunnylandapi.api.controller;
 
+import fur.bunnyland.bunnylandapi.api.dto.LoginRequest;
+import fur.bunnyland.bunnylandapi.api.dto.LoginResponse;
 import fur.bunnyland.bunnylandapi.api.dto.RegisterRequest;
 import fur.bunnyland.bunnylandapi.api.dto.RegisterResponse;
 import fur.bunnyland.bunnylandapi.domain.ResponseObject;
@@ -28,6 +30,15 @@ public class AuthController {
            return new ResponseEntity<>(registerResponse.error().message(), registerResponse.error().status());
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(registerResponse.body());
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity login(@Valid @RequestBody LoginRequest req) {
+        ResponseObject<LoginResponse> loginResponse = userService.login(req);
+        if (loginResponse.hasError()) {
+            return new ResponseEntity<>(loginResponse.error().message(), loginResponse.error().status());
+        }
+        return ResponseEntity.ok(ResponseObject.ok(loginResponse));
     }
 }
 

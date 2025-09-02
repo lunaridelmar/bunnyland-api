@@ -1,5 +1,6 @@
 package fur.bunnyland.bunnylandapi.security;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -43,5 +44,14 @@ public class JwtUtil {
 
     public long getAccessTtlSeconds() {
         return accessTtlMs / 1000;
+    }
+
+    // security/JwtUtil.java
+    public Claims parseRefreshToken(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(refreshKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 }

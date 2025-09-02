@@ -1,9 +1,6 @@
 package fur.bunnyland.bunnylandapi.api.controller;
 
-import fur.bunnyland.bunnylandapi.api.dto.LoginRequest;
-import fur.bunnyland.bunnylandapi.api.dto.LoginResponse;
-import fur.bunnyland.bunnylandapi.api.dto.RegisterRequest;
-import fur.bunnyland.bunnylandapi.api.dto.RegisterResponse;
+import fur.bunnyland.bunnylandapi.api.dto.*;
 import fur.bunnyland.bunnylandapi.domain.ResponseObject;
 import fur.bunnyland.bunnylandapi.service.UserService;
 import jakarta.validation.Valid;
@@ -40,5 +37,15 @@ public class AuthController {
         }
         return ResponseEntity.ok(ResponseObject.ok(loginResponse));
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity refresh(@Valid @RequestBody RefreshRequest req) {
+        ResponseObject<RefreshResponse>  refreshResponse = userService.refresh(req);
+        if (refreshResponse.hasError()) {
+            return new ResponseEntity<>(refreshResponse.error().message(), refreshResponse.error().status());
+        }
+        return ResponseEntity.ok(ResponseObject.ok(refreshResponse));
+    }
+
 }
 

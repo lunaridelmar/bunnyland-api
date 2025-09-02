@@ -6,6 +6,8 @@ import fur.bunnyland.bunnylandapi.domain.ResponseObject;
 import fur.bunnyland.bunnylandapi.domain.User;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
 import fur.bunnyland.bunnylandapi.security.JwtUtil;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -150,4 +152,86 @@ class UserServiceTest {
         verify(jwtUtil).getAccessTtlSeconds();
     }
 
+    @Test
+    void refreshReturnsNewTokensOnSuccess() {
+        // given
+        String refresh = "refresh-token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseRefreshToken(refresh)).thenReturn(claims);
+        when(claims.getSubject()).thenReturn("admin@bunnyland.com");
+        when(claims.get("id", Long.class)).thenReturn(42L);
+
+        var user = new User();
+        user.setId(42L);
+        user.setEmail("admin@bunnyland.com");
+        user.setRoles(Set.of("ADMIN"));
+
+        when(userRepository.findById(42L)).thenReturn(Optional.of(user));
+        when(jwtUtil.generateAccessToken(42L, "admin@bunnyland.com", Set.of("ADMIN"))).thenReturn("new-access");
+        when(jwtUtil.generateRefreshToken(42L, "admin@bunnyland.com")).thenReturn("new-refresh");
+        when(jwtUtil.getAccessTtlSeconds()).thenReturn(900L);
+
+        // when
+        var result = userService.refresh(new RefreshRequest(refresh));
+
+        // then
+        assertThat(result.hasError()).isFalse();
+        RefreshResponse body = result.body();
+        assertThat(body).isNotNull();
+        assertThat(body.id()).isEqualTo(42L);
+        assertThat(body.email()).isEqualTo("admin@bunnyland.com");
+        assertThat(body.roles()).containsExactlyInAnyOrder("ADMIN");
+        assertThat(body.accessToken()).isEqualTo("new-access");
+        assertThat(body.refreshToken()).isEqualTo("new-refresh");
+        assertThat(body.expiresIn()).isEqualTo(900L);
+
+        verify(jwtUtil).parseRefreshToken(refresh);
+        verify(jwtUtil).generateAccessToken(42L, "admin@bunnyland.com", Set.of("ADMIN"));
+        verify(jwtUtil).generateRefreshToken(42L, "admin@bunnyland.com");
+        verify(jwtUtil).getAccessTtlSeconds();
+    }
+
+    @Test
+    void refreshFailsWhenUserNotFoundOrEmailMismatch() {
+        // given: token says id=7 & subject=email A, but DB has a different email (filter makes Optional empty)
+        String refresh = "rt";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseRefreshToken(refresh)).thenReturn(claims);
+        when(claims.getSubject()).thenReturn("alice@example.com");
+        when(claims.get("id", Long.class)).thenReturn(7L);
+
+        var dbUser = new User();
+        dbUser.setId(7L);
+        dbUser.setEmail("different@example.com"); // mismatch → filter fails
+
+        when(userRepository.findById(7L)).thenReturn(Optional.of(dbUser));
+
+        // when
+        var result = userService.refresh(new RefreshRequest(refresh));
+
+        // then
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(result.error().code()).isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(jwtUtil, never()).generateAccessToken(any(), any(), any());
+        verify(jwtUtil, never()).generateRefreshToken(any(), any());
+    }
+
+    @Test
+    void refreshFailsWhenTokenInvalid() {
+        // given
+        String refresh = "bad-token";
+        when(jwtUtil.parseRefreshToken(refresh)).thenThrow(new JwtException("invalid"));
+
+        // when
+        var result = userService.refresh(new RefreshRequest(refresh));
+
+        // then
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(result.error().code()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+        verify(userRepository, never()).findById(any());
+        verify(jwtUtil, never()).generateAccessToken(any(), any(), any());
+        verify(jwtUtil, never()).generateRefreshToken(any(), any());
+    }
 }

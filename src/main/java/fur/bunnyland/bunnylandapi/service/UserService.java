@@ -6,6 +6,8 @@ import fur.bunnyland.bunnylandapi.domain.ResponseObject;
 import fur.bunnyland.bunnylandapi.domain.User;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
 import fur.bunnyland.bunnylandapi.security.JwtUtil;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -76,4 +78,45 @@ public class UserService {
 
         return ResponseObject.ok(new LoginResponse(user.getId(), user.getEmail(), user.getRoles(), accessToken, refreshToken, expiresIn));
     }
+
+    @Transactional(readOnly = true)
+    public ResponseObject<RefreshResponse> refresh(RefreshRequest request) {
+        try {
+            Claims claims = jwtUtil.parseRefreshToken(request.refreshToken());
+            String email = claims.getSubject();
+            Long userId = claims.get("id", Long.class);
+
+            Optional<User> userOptional = userRepository.findById(userId)
+                    .filter(u -> u.getEmail().equalsIgnoreCase(email));
+            if (userOptional.isEmpty()) {
+                return ResponseObject.fail(
+                        new MessageError(HttpStatus.UNAUTHORIZED,
+                                USER_NOT_FOUND,
+                                "User not found",
+                                "No user found with this email " + email));
+            }
+            User user = userOptional.get();
+
+            String newAccessToken = jwtUtil.generateAccessToken(user.getId(), user.getEmail(), user.getRoles());
+            long expiresIn = jwtUtil.getAccessTtlSeconds();
+            String refreshToken = jwtUtil.generateRefreshToken(userId, user.getEmail());
+
+            RefreshResponse body = new RefreshResponse(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getRoles(),
+                    newAccessToken,
+                    refreshToken,
+                    expiresIn
+            );
+            return ResponseObject.ok(body);
+        } catch (JwtException e) {
+            return ResponseObject.fail(
+                    new MessageError(HttpStatus.UNAUTHORIZED,
+                            INVALID_REFRESH_TOKEN,
+                            "Invalid or expired refresh token",
+                            e.getMessage()));
+        }
+    }
+
 }

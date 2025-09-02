@@ -46,10 +46,17 @@ public class JwtUtil {
         return accessTtlMs / 1000;
     }
 
-    // security/JwtUtil.java
     public Claims parseRefreshToken(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(refreshKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    public Claims parseAccessToken(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(accessKey)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();

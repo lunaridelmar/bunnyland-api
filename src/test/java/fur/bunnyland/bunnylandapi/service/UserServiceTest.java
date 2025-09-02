@@ -234,4 +234,77 @@ class UserServiceTest {
         verify(jwtUtil, never()).generateAccessToken(any(), any(), any());
         verify(jwtUtil, never()).generateRefreshToken(any(), any());
     }
+
+    @Test
+    void meReturnsProfileWhenTokenValid() {
+        // given
+        String access = "access-token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(access)).thenReturn(claims);
+        when(claims.get("id", Long.class)).thenReturn(15L);
+
+        var user = new User();
+        user.setId(15L);
+        user.setEmail("user@example.com");
+        user.setDisplayName("User");
+        user.setCity("City");
+        user.setCountry("Country");
+        user.setRoles(Set.of("OWNER"));
+
+        when(userRepository.findById(15L)).thenReturn(Optional.of(user));
+
+        // when
+        var result = userService.me(access);
+
+        // then
+        assertThat(result.hasError()).isFalse();
+        ProfileResponse body = result.body();
+        assertThat(body).isNotNull();
+        assertThat(body.id()).isEqualTo(15L);
+        assertThat(body.email()).isEqualTo("user@example.com");
+        assertThat(body.displayName()).isEqualTo("User");
+        assertThat(body.city()).isEqualTo("City");
+        assertThat(body.country()).isEqualTo("Country");
+        assertThat(body.roles()).containsExactly(Role.OWNER);
+
+        verify(jwtUtil).parseAccessToken(access);
+        verify(userRepository).findById(15L);
+    }
+
+    @Test
+    void meFailsWhenUserNotFound() {
+        // given
+        String access = "a";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(access)).thenReturn(claims);
+        when(claims.get("id", Long.class)).thenReturn(9L);
+
+        when(userRepository.findById(9L)).thenReturn(Optional.empty());
+
+        // when
+        var result = userService.me(access);
+
+        // then
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(result.error().code()).isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(jwtUtil).parseAccessToken(access);
+        verify(userRepository).findById(9L);
+    }
+
+    @Test
+    void meFailsWhenTokenInvalid() {
+        // given
+        String access = "bad";
+        when(jwtUtil.parseAccessToken(access)).thenThrow(new JwtException("invalid"));
+
+        // when
+        var result = userService.me(access);
+
+        // then
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(result.error().code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS);
+        verify(userRepository, never()).findById(any());
+    }
 }

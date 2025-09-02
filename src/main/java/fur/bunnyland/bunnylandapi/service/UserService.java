@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static fur.bunnyland.bunnylandapi.domain.ErrorCode.*;
 
@@ -119,4 +120,37 @@ public class UserService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public ResponseObject<ProfileResponse> me(String accessToken) {
+        try {
+            Claims claims = jwtUtil.parseAccessToken(accessToken);
+            Long userId = claims.get("id", Long.class);
+
+            Optional<User> userOptional = userRepository.findById(userId);
+            if (userOptional.isEmpty()) {
+                return ResponseObject.fail(
+                        new MessageError(HttpStatus.UNAUTHORIZED,
+                                USER_NOT_FOUND,
+                                "User not found",
+                                "No user found with this id " + userId));
+            }
+            User user = userOptional.get();
+
+            ProfileResponse body = new ProfileResponse(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getDisplayName(),
+                    user.getCity(),
+                    user.getCountry(),
+                    user.getRoles().stream().map(Role::valueOf).collect(Collectors.toSet())
+            );
+            return ResponseObject.ok(body);
+        } catch (JwtException e) {
+            return ResponseObject.fail(
+                    new MessageError(HttpStatus.UNAUTHORIZED,
+                            INVALID_CREDENTIALS,
+                            "Invalid or expired access token",
+                            e.getMessage()));
+        }
+    }
 }

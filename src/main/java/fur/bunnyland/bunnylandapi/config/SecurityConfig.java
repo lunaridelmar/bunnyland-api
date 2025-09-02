@@ -15,7 +15,10 @@ public class SecurityConfig {
                 http
                         .csrf(csrf -> csrf.disable())
                         .authorizeHttpRequests(authorize -> authorize
-                                .requestMatchers("/api/health", "/api/auth/**", "/swagger-ui/**",
+                                .requestMatchers("/api/health",
+                                        "/api/auth/**",
+                                        "/api/users/me",
+                                        "/swagger-ui/**",
                                         "/v3/api-docs/**").permitAll()
                                 .anyRequest().authenticated())
                         .httpBasic(h -> h.disable());

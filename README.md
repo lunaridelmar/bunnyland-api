@@ -17,6 +17,24 @@ Built with **Java 21 + Spring Boot 3**.
     * Register/login as a bunny owner
     * Admin role for content & moderation
 
+```
+{
+  "email": "bunnylover@example.com",
+  "password": "fluffy123",
+  "displayName": "Alice BunnyMom",
+  "city": "Hamburg",
+  "country": "Germany"
+}
+
+```
+
+```
+{
+  "email": "bunnylover@example.com",
+  "password": "fluffy123"
+}
+```
+
 * **Bunny profiles**
 
     * Each user can register their bunny (name, breed, age, photos, notes)
@@ -30,6 +48,17 @@ Built with **Java 21 + Spring Boot 3**.
 
     * “I am traveling and need someone to care for my bunny” posts
     * Filter by location & dates
+
+```
+{
+  "title": "Traveling to Spain — need bunny host",
+  "description": "I will be away 12–20 Oct. My bunny is calm, vaccinated, loves hay and coriander.",
+  "city": "Hamburg",
+  "country": "Germany",
+  "startDate": "2025-10-12",
+  "endDate": "2025-10-20"
+}
+```
 
 * **Articles (admin only)**
 

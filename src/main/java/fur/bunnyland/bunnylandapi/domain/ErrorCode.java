@@ -1,6 +1,7 @@
 package fur.bunnyland.bunnylandapi.domain;
 
 public enum ErrorCode {
+    INVALID_DATES(400),
     USER_NOT_FOUND(401),
     INVALID_CREDENTIALS(401),
     INVALID_REFRESH_TOKEN(401),

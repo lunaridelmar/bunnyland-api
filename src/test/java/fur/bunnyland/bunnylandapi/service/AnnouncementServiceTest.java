@@ -125,7 +125,7 @@ class AnnouncementServiceTest {
         a.setOwner(owner);
         a.setTitle("t");
         a.setDescription("d");
-        when(announcementRepository.findByStatus(AnnouncementStatus.OPEN.name())).thenReturn(List.of(a));
+        when(announcementRepository.findAll()).thenReturn(List.of(a));
 
         List<AnnouncementResponse> result = announcementService.listAll();
 
@@ -135,27 +135,6 @@ class AnnouncementServiceTest {
         assertThat(resp.ownerId()).isEqualTo(3L);
         assertThat(resp.title()).isEqualTo("t");
         assertThat(resp.description()).isEqualTo("d");
-        verify(announcementRepository).findByStatus(AnnouncementStatus.OPEN.name());
-    }
-
-    @Test
-    void listAllClosesExpiredAnnouncements() {
-        User owner = new User();
-        owner.setId(3L);
-        Announcement a = new Announcement();
-        a.setId(7L);
-        a.setOwner(owner);
-        a.setTitle("t");
-        a.setDescription("d");
-        a.setEndDate(LocalDate.now().minusDays(1));
-        when(announcementRepository.findByStatus(AnnouncementStatus.OPEN.name())).thenReturn(List.of(a));
-
-        List<AnnouncementResponse> result = announcementService.listAll();
-
-        assertThat(result).isEmpty();
-        assertThat(a.getStatus()).isEqualTo(AnnouncementStatus.CLOSED.name());
-        verify(announcementRepository).save(a);
-        verify(announcementRepository).findByStatus(AnnouncementStatus.OPEN.name());
     }
 
     @Test

@@ -3,6 +3,7 @@ package fur.bunnyland.bunnylandapi.api.controller;
 import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.domain.ResponseObject;
 import fur.bunnyland.bunnylandapi.service.AnnouncementService;
 import jakarta.validation.Valid;
@@ -56,5 +57,26 @@ public class AnnouncementController {
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.LOCATION, "/api/announcements/" + resp.body().id());
         return new ResponseEntity<>(resp.body(), headers, HttpStatus.CREATED);
+    }
+
+    @PreAuthorize("hasAuthority('ADMIN') or hasRole('ADMIN') or hasAuthority('OWNER') or hasRole('OWNER')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity delete(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @PathVariable Long id
+    ) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Missing or invalid Authorization header");
+        }
+        String token = authorization.substring(7);
+
+        ResponseObject<DeleteAnnouncementResponse> resp = announcementService.delete(token, id);
+
+        if (resp.hasError()) {
+            return ResponseEntity.status(resp.error().status()).body(resp.error().message());
+        }
+
+        return ResponseEntity.ok(resp.body());
     }
 }

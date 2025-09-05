@@ -3,6 +3,7 @@ package fur.bunnyland.bunnylandapi.service;
 import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.domain.*;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementRepository;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
@@ -112,6 +113,7 @@ class AnnouncementServiceTest {
         assertThat(saved.getOwner()).isEqualTo(owner);
         assertThat(saved.getTitle()).isEqualTo("title");
         assertThat(saved.getDescription()).isEqualTo("desc");
+        assertThat(saved.getStatus()).isEqualTo(AnnouncementStatus.OPEN.name());
     }
 
     @Test
@@ -165,6 +167,93 @@ class AnnouncementServiceTest {
         assertThat(resp.ownerId()).isEqualTo(3L);
         assertThat(resp.title()).isEqualTo("t");
         assertThat(resp.description()).isEqualTo("d");
+    }
+
+    @Test
+    void deleteReturnsErrorWhenAnnouncementNotFound() {
+        String token = "token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(token)).thenReturn(claims);
+        when(claims.get("id", Long.class)).thenReturn(1L);
+        when(claims.get("roles", List.class)).thenReturn(List.of("OWNER"));
+        when(announcementRepository.findById(5L)).thenReturn(Optional.empty());
+
+        ResponseObject<DeleteAnnouncementResponse> result = announcementService.delete(token, 5L);
+
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(result.error().code()).isEqualTo(ErrorCode.ANNOUNCEMENT_NOT_FOUND);
+    }
+
+    @Test
+    void deleteFailsWhenUserIsNotOwnerOrAdmin() {
+        String token = "token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(token)).thenReturn(claims);
+        when(claims.get("id", Long.class)).thenReturn(2L);
+        when(claims.get("roles", List.class)).thenReturn(List.of("OWNER"));
+
+        User owner = new User();
+        owner.setId(1L);
+        Announcement a = new Announcement();
+        a.setId(5L);
+        a.setOwner(owner);
+        when(announcementRepository.findById(5L)).thenReturn(Optional.of(a));
+
+        ResponseObject<DeleteAnnouncementResponse> result = announcementService.delete(token, 5L);
+
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(result.error().code()).isEqualTo(ErrorCode.FORBIDDEN);
+        verify(announcementRepository, never()).save(any());
+    }
+
+    @Test
+    void deleteDeletesWhenOwner() {
+        String token = "token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(token)).thenReturn(claims);
+        when(claims.get("id", Long.class)).thenReturn(1L);
+        when(claims.get("roles", List.class)).thenReturn(List.of("OWNER"));
+
+        User owner = new User();
+        owner.setId(1L);
+        Announcement a = new Announcement();
+        a.setId(5L);
+        a.setOwner(owner);
+        when(announcementRepository.findById(5L)).thenReturn(Optional.of(a));
+
+        ResponseObject<DeleteAnnouncementResponse> result = announcementService.delete(token, 5L);
+
+        assertThat(result.hasError()).isFalse();
+        assertThat(a.getStatus()).isEqualTo(AnnouncementStatus.DELETED.name());
+        assertThat(result.body().id()).isEqualTo(5L);
+        assertThat(result.body().status()).isEqualTo(AnnouncementStatus.DELETED);
+        verify(announcementRepository).save(a);
+    }
+
+    @Test
+    void deleteDeletesWhenAdmin() {
+        String token = "token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(token)).thenReturn(claims);
+        when(claims.get("id", Long.class)).thenReturn(9L);
+        when(claims.get("roles", List.class)).thenReturn(List.of("ADMIN"));
+
+        User owner = new User();
+        owner.setId(1L);
+        Announcement a = new Announcement();
+        a.setId(5L);
+        a.setOwner(owner);
+        when(announcementRepository.findById(5L)).thenReturn(Optional.of(a));
+
+        ResponseObject<DeleteAnnouncementResponse> result = announcementService.delete(token, 5L);
+
+        assertThat(result.hasError()).isFalse();
+        assertThat(a.getStatus()).isEqualTo(AnnouncementStatus.DELETED.name());
+        assertThat(result.body().id()).isEqualTo(5L);
+        assertThat(result.body().status()).isEqualTo(AnnouncementStatus.DELETED);
+        verify(announcementRepository).save(a);
     }
 }
 

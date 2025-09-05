@@ -96,16 +96,50 @@ class AnnouncementControllerIntegrationTest {
         owner.setDisplayName("Owner");
         owner = userRepository.save(owner);
 
+        Announcement open = new Announcement();
+        open.setOwner(owner);
+        open.setTitle("title1");
+        open.setDescription("desc1");
+        announcementRepository.save(open);
+
+        Announcement closed = new Announcement();
+        closed.setOwner(owner);
+        closed.setTitle("title2");
+        closed.setDescription("desc2");
+        closed.setStatus(AnnouncementStatus.CLOSED.name());
+        announcementRepository.save(closed);
+
+        mockMvc.perform(get("/api/announcements"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("title1"))
+                .andExpect(jsonPath("$[0].ownerId").value(owner.getId()));
+    }
+
+    @Test
+    void listClosesExpiredAnnouncements() throws Exception {
+        announcementRepository.deleteAll();
+        userRepository.deleteAll();
+
+        User owner = new User();
+        owner.setEmail("owner@example.com");
+        owner.setPasswordHash("pw");
+        owner.setDisplayName("Owner");
+        owner = userRepository.save(owner);
+
         Announcement a = new Announcement();
         a.setOwner(owner);
         a.setTitle("title1");
         a.setDescription("desc1");
-        announcementRepository.save(a);
+        a.setEndDate(LocalDate.now().minusDays(1));
+        a = announcementRepository.save(a);
 
         mockMvc.perform(get("/api/announcements"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].title").value("title1"))
-                .andExpect(jsonPath("$[0].ownerId").value(owner.getId()));
+                .andExpect(jsonPath("$").isEmpty());
+
+        Announcement updated = announcementRepository.findById(a.getId()).orElseThrow();
+        assertThat(updated.getStatus()).isEqualTo(AnnouncementStatus.CLOSED.name());
     }
 
     @Test

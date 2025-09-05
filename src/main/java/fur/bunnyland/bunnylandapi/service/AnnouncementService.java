@@ -14,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -75,23 +77,34 @@ public class AnnouncementService {
         return ResponseObject.ok(body);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<AnnouncementResponse> listAll() {
-        return announcementRepository.findAll().stream()
-                .filter(a -> Objects.equals(a.getStatus(), AnnouncementStatus.OPEN.name()))
-                .map(a -> new AnnouncementResponse(
-                        a.getId(),
-                        a.getOwner().getId(),
-                        a.getTitle(),
-                        a.getDescription(),
-                        a.getCity(),
-                        a.getCountry(),
-                        a.getStartDate(),
-                        a.getEndDate(),
-                        a.getStatus(),
-                        a.getCreatedAt()
-                ))
-                .toList();
+        List<Announcement> announcements = announcementRepository.findByStatus(AnnouncementStatus.OPEN.name());
+        LocalDate today = LocalDate.now();
+
+        List<AnnouncementResponse> result = new ArrayList<>();
+        for (Announcement a : announcements) {
+            if (a.getEndDate() != null && a.getEndDate().isBefore(today)) {
+                a.setStatus(AnnouncementStatus.CLOSED.name());
+                announcementRepository.save(a);
+                continue;
+            }
+
+            result.add(new AnnouncementResponse(
+                    a.getId(),
+                    a.getOwner().getId(),
+                    a.getTitle(),
+                    a.getDescription(),
+                    a.getCity(),
+                    a.getCountry(),
+                    a.getStartDate(),
+                    a.getEndDate(),
+                    a.getStatus(),
+                    a.getCreatedAt()
+            ));
+        }
+
+        return result;
     }
 
     @Transactional(readOnly = true)

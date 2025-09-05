@@ -125,7 +125,7 @@ class AnnouncementServiceTest {
         a.setOwner(owner);
         a.setTitle("t");
         a.setDescription("d");
-        when(announcementRepository.findAll()).thenReturn(List.of(a));
+        when(announcementRepository.findByStatus(AnnouncementStatus.OPEN.name())).thenReturn(List.of(a));
 
         List<AnnouncementResponse> result = announcementService.listAll();
 

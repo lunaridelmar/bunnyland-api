@@ -77,7 +77,7 @@ public class AnnouncementService {
 
     @Transactional(readOnly = true)
     public List<AnnouncementResponse> listAll() {
-        return announcementRepository.findAll().stream()
+        return announcementRepository.findByStatus(AnnouncementStatus.OPEN.name()).stream()
                 .filter(a -> Objects.equals(a.getStatus(), AnnouncementStatus.OPEN.name()))
                 .map(a -> new AnnouncementResponse(
                         a.getId(),

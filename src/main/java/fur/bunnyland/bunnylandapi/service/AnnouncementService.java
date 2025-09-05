@@ -1,5 +1,6 @@
 package fur.bunnyland.bunnylandapi.service;
 
+import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.domain.*;
@@ -11,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 import static fur.bunnyland.bunnylandapi.domain.ErrorCode.INVALID_DATES;
 import static fur.bunnyland.bunnylandapi.domain.ErrorCode.USER_NOT_FOUND;
@@ -71,5 +74,23 @@ public class AnnouncementService {
                 saved.getCreatedAt()
         );
         return ResponseObject.ok(body);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AnnouncementResponse> listAll() {
+        return announcementRepository.findAll().stream()
+                .map(a -> new AnnouncementResponse(
+                        a.getId(),
+                        a.getOwner().getId(),
+                        a.getTitle(),
+                        a.getDescription(),
+                        a.getCity(),
+                        a.getCountry(),
+                        a.getStartDate(),
+                        a.getEndDate(),
+                        a.getStatus(),
+                        a.getCreatedAt()
+                ))
+                .toList();
     }
 }

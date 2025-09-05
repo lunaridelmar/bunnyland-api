@@ -3,6 +3,7 @@ package fur.bunnyland.bunnylandapi;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.domain.Announcement;
+import fur.bunnyland.bunnylandapi.domain.User;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementRepository;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -79,6 +81,29 @@ class AnnouncementControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"t\",\"description\":\"d\"}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void listReturnsAllAnnouncements() throws Exception {
+        announcementRepository.deleteAll();
+        userRepository.deleteAll();
+
+        User owner = new User();
+        owner.setEmail("owner@example.com");
+        owner.setPasswordHash("pw");
+        owner.setDisplayName("Owner");
+        owner = userRepository.save(owner);
+
+        Announcement a = new Announcement();
+        a.setOwner(owner);
+        a.setTitle("title1");
+        a.setDescription("desc1");
+        announcementRepository.save(a);
+
+        mockMvc.perform(get("/api/announcements"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("title1"))
+                .andExpect(jsonPath("$[0].ownerId").value(owner.getId()));
     }
 }
 

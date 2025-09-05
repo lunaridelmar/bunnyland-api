@@ -1,5 +1,6 @@
 package fur.bunnyland.bunnylandapi.service;
 
+import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.domain.*;
@@ -16,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -110,6 +112,27 @@ class AnnouncementServiceTest {
         assertThat(saved.getOwner()).isEqualTo(owner);
         assertThat(saved.getTitle()).isEqualTo("title");
         assertThat(saved.getDescription()).isEqualTo("desc");
+    }
+
+    @Test
+    void listAllReturnsMappedAnnouncements() {
+        User owner = new User();
+        owner.setId(3L);
+        Announcement a = new Announcement();
+        a.setId(7L);
+        a.setOwner(owner);
+        a.setTitle("t");
+        a.setDescription("d");
+        when(announcementRepository.findAll()).thenReturn(List.of(a));
+
+        List<AnnouncementResponse> result = announcementService.listAll();
+
+        assertThat(result).hasSize(1);
+        AnnouncementResponse resp = result.get(0);
+        assertThat(resp.id()).isEqualTo(7L);
+        assertThat(resp.ownerId()).isEqualTo(3L);
+        assertThat(resp.title()).isEqualTo("t");
+        assertThat(resp.description()).isEqualTo("d");
     }
 }
 

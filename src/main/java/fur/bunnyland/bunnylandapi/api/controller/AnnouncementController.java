@@ -1,5 +1,6 @@
 package fur.bunnyland.bunnylandapi.api.controller;
 
+import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.domain.ResponseObject;
@@ -10,12 +11,20 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/announcements")
 @RequiredArgsConstructor
 public class AnnouncementController {
 
     private final AnnouncementService announcementService;
+
+    @GetMapping
+    public ResponseEntity<List<AnnouncementResponse>> list() {
+        List<AnnouncementResponse> resp = announcementService.listAll();
+        return ResponseEntity.ok(resp);
+    }
 
     @PreAuthorize("hasAuthority('OWNER') or hasRole('OWNER')")
     @PostMapping

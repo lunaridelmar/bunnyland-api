@@ -26,6 +26,15 @@ public class AnnouncementController {
         return ResponseEntity.ok(resp);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity get(@PathVariable Long id) {
+        ResponseObject<AnnouncementResponse> resp = announcementService.get(id);
+        if (resp.hasError()) {
+            return ResponseEntity.status(resp.error().status()).body(resp.error().message());
+        }
+        return ResponseEntity.ok(resp.body());
+    }
+
     @PreAuthorize("hasAuthority('OWNER') or hasRole('OWNER')")
     @PostMapping
     public ResponseEntity create(

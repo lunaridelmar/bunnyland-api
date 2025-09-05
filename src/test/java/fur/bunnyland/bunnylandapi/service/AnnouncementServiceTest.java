@@ -134,5 +134,37 @@ class AnnouncementServiceTest {
         assertThat(resp.title()).isEqualTo("t");
         assertThat(resp.description()).isEqualTo("d");
     }
+
+    @Test
+    void getReturnsErrorWhenAnnouncementNotFound() {
+        when(announcementRepository.findById(1L)).thenReturn(Optional.empty());
+
+        ResponseObject<AnnouncementResponse> result = announcementService.get(1L);
+
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(result.error().code()).isEqualTo(ErrorCode.ANNOUNCEMENT_NOT_FOUND);
+    }
+
+    @Test
+    void getReturnsMappedAnnouncement() {
+        User owner = new User();
+        owner.setId(3L);
+        Announcement a = new Announcement();
+        a.setId(7L);
+        a.setOwner(owner);
+        a.setTitle("t");
+        a.setDescription("d");
+        when(announcementRepository.findById(7L)).thenReturn(Optional.of(a));
+
+        ResponseObject<AnnouncementResponse> result = announcementService.get(7L);
+
+        assertThat(result.hasError()).isFalse();
+        AnnouncementResponse resp = result.body();
+        assertThat(resp.id()).isEqualTo(7L);
+        assertThat(resp.ownerId()).isEqualTo(3L);
+        assertThat(resp.title()).isEqualTo("t");
+        assertThat(resp.description()).isEqualTo("d");
+    }
 }
 

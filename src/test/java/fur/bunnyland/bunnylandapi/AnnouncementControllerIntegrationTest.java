@@ -105,5 +105,35 @@ class AnnouncementControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].title").value("title1"))
                 .andExpect(jsonPath("$[0].ownerId").value(owner.getId()));
     }
+
+    @Test
+    void getReturnsAnnouncementById() throws Exception {
+        announcementRepository.deleteAll();
+        userRepository.deleteAll();
+
+        User owner = new User();
+        owner.setEmail("owner@example.com");
+        owner.setPasswordHash("pw");
+        owner.setDisplayName("Owner");
+        owner = userRepository.save(owner);
+
+        Announcement a = new Announcement();
+        a.setOwner(owner);
+        a.setTitle("title1");
+        a.setDescription("desc1");
+        a = announcementRepository.save(a);
+
+        mockMvc.perform(get("/api/announcements/" + a.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(a.getId()))
+                .andExpect(jsonPath("$.title").value("title1"))
+                .andExpect(jsonPath("$.ownerId").value(owner.getId()));
+    }
+
+    @Test
+    void getReturnsNotFoundForMissingAnnouncement() throws Exception {
+        mockMvc.perform(get("/api/announcements/9999"))
+                .andExpect(status().isNotFound());
+    }
 }
 

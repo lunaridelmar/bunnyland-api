@@ -17,6 +17,7 @@ import java.util.List;
 
 import static fur.bunnyland.bunnylandapi.domain.ErrorCode.INVALID_DATES;
 import static fur.bunnyland.bunnylandapi.domain.ErrorCode.USER_NOT_FOUND;
+import static fur.bunnyland.bunnylandapi.domain.ErrorCode.ANNOUNCEMENT_NOT_FOUND;
 
 @Service
 @RequiredArgsConstructor
@@ -92,5 +93,28 @@ public class AnnouncementService {
                         a.getCreatedAt()
                 ))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseObject<AnnouncementResponse> get(Long id) {
+        return announcementRepository.findById(id)
+                .map(a -> ResponseObject.ok(new AnnouncementResponse(
+                        a.getId(),
+                        a.getOwner().getId(),
+                        a.getTitle(),
+                        a.getDescription(),
+                        a.getCity(),
+                        a.getCountry(),
+                        a.getStartDate(),
+                        a.getEndDate(),
+                        a.getStatus(),
+                        a.getCreatedAt()
+                )))
+                .orElseGet(() -> ResponseObject.fail(
+                        new MessageError(HttpStatus.NOT_FOUND,
+                                ANNOUNCEMENT_NOT_FOUND,
+                                "Announcement not found",
+                                "No announcement found with id " + id))
+                );
     }
 }

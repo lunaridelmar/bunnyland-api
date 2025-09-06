@@ -204,7 +204,7 @@ class AnnouncementServiceTest {
         app.setAnnouncement(announcement);
         app.setMessage("hello");
         app.setContact("email");
-        when(announcementApplicationRepository.findByAnnouncementOwnerId(5L)).thenReturn(List.of(app));
+        when(announcementApplicationRepository.findByAnnouncementOwnerIdAndAnnouncementStatus(5L, AnnouncementStatus.OPEN.name())).thenReturn(List.of(app));
 
         ResponseObject<List<AnnouncementApplicationResponse>> result = announcementService.listApplicationsForOwner(token);
 

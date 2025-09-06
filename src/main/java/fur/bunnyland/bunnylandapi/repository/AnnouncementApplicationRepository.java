@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface AnnouncementApplicationRepository extends JpaRepository<AnnouncementApplication, Long> {
     List<AnnouncementApplication> findByAnnouncementOwnerId(Long ownerId);
+    List<AnnouncementApplication> findByAnnouncementOwnerIdAndAnnouncementStatus(Long ownerId, String status);
 }

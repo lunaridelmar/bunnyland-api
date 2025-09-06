@@ -253,7 +253,8 @@ public class AnnouncementService {
             );
         }
 
-        List<AnnouncementApplicationResponse> apps = announcementApplicationRepository.findByAnnouncementOwnerId(userId)
+        List<AnnouncementApplicationResponse> apps = announcementApplicationRepository
+                .findByAnnouncementOwnerIdAndAnnouncementStatus(userId, AnnouncementStatus.OPEN.name())
                 .stream()
                 .map(app -> new AnnouncementApplicationResponse(
                         app.getId(),

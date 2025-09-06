@@ -6,6 +6,7 @@ import fur.bunnyland.bunnylandapi.domain.Announcement;
 import fur.bunnyland.bunnylandapi.domain.AnnouncementStatus;
 import fur.bunnyland.bunnylandapi.domain.User;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementRepository;
+import fur.bunnyland.bunnylandapi.repository.AnnouncementApplicationRepository;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,9 @@ class AnnouncementControllerIntegrationTest {
 
     @Autowired
     private AnnouncementRepository announcementRepository;
+
+    @Autowired
+    private AnnouncementApplicationRepository announcementApplicationRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -178,6 +182,34 @@ class AnnouncementControllerIntegrationTest {
     void getReturnsNotFoundForMissingAnnouncement() throws Exception {
         mockMvc.perform(get("/api/announcements/9999"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void applyCreatesApplication() throws Exception {
+        announcementApplicationRepository.deleteAll();
+        announcementRepository.deleteAll();
+        userRepository.deleteAll();
+
+        User owner = new User();
+        owner.setEmail("owner@example.com");
+        owner.setPasswordHash("pw");
+        owner.setDisplayName("Owner");
+        owner = userRepository.save(owner);
+
+        Announcement a = new Announcement();
+        a.setOwner(owner);
+        a.setTitle("t");
+        a.setDescription("d");
+        a = announcementRepository.save(a);
+
+        mockMvc.perform(post("/api/announcements/" + a.getId() + "/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"hi\",\"contact\":\"email\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.announcementId").value(a.getId()))
+                .andExpect(jsonPath("$.message").value("hi"));
+
+        assertThat(announcementApplicationRepository.count()).isEqualTo(1);
     }
 
     @Test

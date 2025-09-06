@@ -1,5 +1,7 @@
 package fur.bunnyland.bunnylandapi.service;
 
+import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementRequest;
+import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
@@ -8,6 +10,7 @@ import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.ModerateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.ModerateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.domain.*;
+import fur.bunnyland.bunnylandapi.repository.AnnouncementApplicationRepository;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementRepository;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
 import fur.bunnyland.bunnylandapi.security.JwtUtil;
@@ -20,12 +23,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class AnnouncementService {
 
     private final AnnouncementRepository announcementRepository;
+    private final AnnouncementApplicationRepository announcementApplicationRepository;
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
 
@@ -208,6 +213,36 @@ public class AnnouncementService {
         a.setStatus(AnnouncementStatus.DELETED.name());
         announcementRepository.save(a);
         DeleteAnnouncementResponse body = new DeleteAnnouncementResponse(a.getId(), AnnouncementStatus.DELETED);
+        return ResponseObject.ok(body);
+    }
+
+    @Transactional
+    public ResponseObject<ApplyAnnouncementResponse> apply(Long id, ApplyAnnouncementRequest req) {
+        Optional<Announcement> announcementOptional = announcementRepository.findById(id)
+                .filter(a -> Objects.equals(a.getStatus(), AnnouncementStatus.OPEN.name()));
+        if (announcementOptional.isEmpty()) {
+            return ResponseObject.fail(
+                    new MessageError(HttpStatus.NOT_FOUND,
+                            ErrorCode.ANNOUNCEMENT_NOT_FOUND,
+                            "Announcement not found",
+                            "No announcement found with id " + id)
+            );
+        }
+        Announcement announcement = announcementOptional.get();
+
+        AnnouncementApplication app = new AnnouncementApplication();
+        app.setAnnouncement(announcement);
+        app.setMessage(req.message());
+        app.setContact(req.contact());
+        AnnouncementApplication saved = announcementApplicationRepository.save(app);
+
+        ApplyAnnouncementResponse body = new ApplyAnnouncementResponse(
+                saved.getId(),
+                announcement.getId(),
+                saved.getMessage(),
+                saved.getContact(),
+                saved.getCreatedAt()
+        );
         return ResponseObject.ok(body);
     }
 }

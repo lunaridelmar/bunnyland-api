@@ -1,6 +1,8 @@
 package fur.bunnyland.bunnylandapi.service;
 
 import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementRequest;
+import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
@@ -8,6 +10,7 @@ import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResp
 import fur.bunnyland.bunnylandapi.api.dto.announce.ModerateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.domain.*;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementRepository;
+import fur.bunnyland.bunnylandapi.repository.AnnouncementApplicationRepository;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
 import fur.bunnyland.bunnylandapi.security.JwtUtil;
 import io.jsonwebtoken.Claims;
@@ -31,6 +34,9 @@ class AnnouncementServiceTest {
 
     @Mock
     private AnnouncementRepository announcementRepository;
+
+    @Mock
+    private AnnouncementApplicationRepository announcementApplicationRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -137,6 +143,44 @@ class AnnouncementServiceTest {
         assertThat(resp.ownerId()).isEqualTo(3L);
         assertThat(resp.title()).isEqualTo("t");
         assertThat(resp.description()).isEqualTo("d");
+    }
+
+    @Test
+    void applyReturnsErrorWhenAnnouncementNotFound() {
+        when(announcementRepository.findById(1L)).thenReturn(Optional.empty());
+
+        ApplyAnnouncementRequest req = new ApplyAnnouncementRequest("msg", "contact");
+
+        ResponseObject<ApplyAnnouncementResponse> result = announcementService.apply(1L, req);
+
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.NOT_FOUND);
+        verify(announcementApplicationRepository, never()).save(any());
+    }
+
+    @Test
+    void applyPersistsApplicationAndReturnsResponse() {
+        Announcement announcement = new Announcement();
+        announcement.setId(5L);
+        announcement.setStatus(AnnouncementStatus.OPEN.name());
+        when(announcementRepository.findById(5L)).thenReturn(Optional.of(announcement));
+
+        when(announcementApplicationRepository.save(any(AnnouncementApplication.class))).thenAnswer(invocation -> {
+            AnnouncementApplication app = invocation.getArgument(0);
+            app.setId(7L);
+            return app;
+        });
+
+        ApplyAnnouncementRequest req = new ApplyAnnouncementRequest("hello", "email");
+
+        ResponseObject<ApplyAnnouncementResponse> result = announcementService.apply(5L, req);
+
+        assertThat(result.hasError()).isFalse();
+        ApplyAnnouncementResponse body = result.body();
+        assertThat(body.id()).isEqualTo(7L);
+        assertThat(body.announcementId()).isEqualTo(5L);
+        assertThat(body.message()).isEqualTo("hello");
+        verify(announcementApplicationRepository).save(any(AnnouncementApplication.class));
     }
 
     @Test

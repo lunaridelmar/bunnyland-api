@@ -1,5 +1,7 @@
 package fur.bunnyland.bunnylandapi.api.controller;
 
+import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementRequest;
+import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
@@ -37,6 +39,15 @@ public class AnnouncementController {
             return ResponseEntity.status(resp.error().status()).body(resp.error().message());
         }
         return ResponseEntity.ok(resp.body());
+    }
+
+    @PostMapping("/{id}/apply")
+    public ResponseEntity apply(@PathVariable Long id, @Valid @RequestBody ApplyAnnouncementRequest req) {
+        ResponseObject<ApplyAnnouncementResponse> resp = announcementService.apply(id, req);
+        if (resp.hasError()) {
+            return ResponseEntity.status(resp.error().status()).body(resp.error().message());
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(resp.body());
     }
 
     @PreAuthorize("hasAuthority('OWNER') or hasRole('OWNER')")

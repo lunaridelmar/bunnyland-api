@@ -5,6 +5,7 @@ import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.ModerateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.domain.*;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementRepository;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
@@ -203,6 +204,53 @@ class AnnouncementServiceTest {
         assertThat(resp.ownerId()).isEqualTo(3L);
         assertThat(resp.title()).isEqualTo("t");
         assertThat(resp.description()).isEqualTo("d");
+    }
+
+    @Test
+    void moderateReturnsForbiddenForNonAdmin() {
+        String token = "token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(token)).thenReturn(claims);
+        when(claims.get("roles", List.class)).thenReturn(List.of("OWNER"));
+
+        ResponseObject<ModerateAnnouncementResponse> result = announcementService.moderate(token, 1L, AnnouncementStatus.CLOSED);
+
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(announcementRepository, never()).save(any());
+    }
+
+    @Test
+    void moderateReturnsNotFoundWhenAnnouncementMissing() {
+        String token = "token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(token)).thenReturn(claims);
+        when(claims.get("roles", List.class)).thenReturn(List.of("ADMIN"));
+        when(announcementRepository.findById(5L)).thenReturn(Optional.empty());
+
+        ResponseObject<ModerateAnnouncementResponse> result = announcementService.moderate(token, 5L, AnnouncementStatus.CLOSED);
+
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void moderateUpdatesStatusWhenAdmin() {
+        String token = "token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(token)).thenReturn(claims);
+        when(claims.get("roles", List.class)).thenReturn(List.of("ADMIN"));
+
+        Announcement a = new Announcement();
+        a.setId(5L);
+        a.setStatus(AnnouncementStatus.OPEN.name());
+        when(announcementRepository.findById(5L)).thenReturn(Optional.of(a));
+
+        ResponseObject<ModerateAnnouncementResponse> result = announcementService.moderate(token, 5L, AnnouncementStatus.CLOSED);
+
+        assertThat(result.hasError()).isFalse();
+        assertThat(a.getStatus()).isEqualTo(AnnouncementStatus.CLOSED.name());
+        verify(announcementRepository).save(a);
     }
 
     @Test

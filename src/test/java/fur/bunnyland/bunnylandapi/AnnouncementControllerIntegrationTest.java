@@ -317,5 +317,91 @@ class AnnouncementControllerIntegrationTest {
         Announcement deleted = announcementRepository.findById(a.getId()).orElseThrow();
         assertThat(deleted.getStatus()).isEqualTo(AnnouncementStatus.DELETED.name());
     }
+
+    @Test
+    void moderateAllowsAdminToChangeStatus() throws Exception {
+        announcementRepository.deleteAll();
+        userRepository.deleteAll();
+
+        mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"owner@example.com\",\"password\":\"pw\",\"displayName\":\"Owner\"}"))
+                .andExpect(status().isCreated());
+        MvcResult ownerLogin = mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"owner@example.com\",\"password\":\"pw\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String ownerToken = objectMapper.readTree(ownerLogin.getResponse().getContentAsString())
+                .get("body").get("body").get("accessToken").asText();
+        CreateAnnouncementRequest req = new CreateAnnouncementRequest("t", "d", null, null, null, null);
+        mockMvc.perform(post("/api/announcements")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated());
+        Announcement a = announcementRepository.findAll().get(0);
+
+        mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"admin@example.com\",\"password\":\"pw\",\"displayName\":\"Admin\"}"))
+                .andExpect(status().isCreated());
+        User admin = userRepository.findByEmailIgnoreCase("admin@example.com").orElseThrow();
+        admin.setRoles(Set.of("ADMIN"));
+        userRepository.save(admin);
+        MvcResult adminLogin = mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"admin@example.com\",\"password\":\"pw\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String adminToken = objectMapper.readTree(adminLogin.getResponse().getContentAsString())
+                .get("body").get("body").get("accessToken").asText();
+
+        mockMvc.perform(patch("/api/announcements/" + a.getId() + "/moderate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"CLOSED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(a.getId()))
+                .andExpect(jsonPath("$.status").value(AnnouncementStatus.CLOSED.name()));
+
+        Announcement moderated = announcementRepository.findById(a.getId()).orElseThrow();
+        assertThat(moderated.getStatus()).isEqualTo(AnnouncementStatus.CLOSED.name());
+    }
+
+    @Test
+    void moderatePreventsNonAdmin() throws Exception {
+        announcementRepository.deleteAll();
+        userRepository.deleteAll();
+
+        mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"owner@example.com\",\"password\":\"pw\",\"displayName\":\"Owner\"}"))
+                .andExpect(status().isCreated());
+        MvcResult ownerLogin = mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"owner@example.com\",\"password\":\"pw\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String ownerToken = objectMapper.readTree(ownerLogin.getResponse().getContentAsString())
+                .get("body").get("body").get("accessToken").asText();
+
+        CreateAnnouncementRequest req = new CreateAnnouncementRequest("t", "d", null, null, null, null);
+        mockMvc.perform(post("/api/announcements")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated());
+        Announcement a = announcementRepository.findAll().get(0);
+
+        mockMvc.perform(patch("/api/announcements/" + a.getId() + "/moderate")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"CLOSED\"}"))
+                .andExpect(status().isForbidden());
+
+        Announcement still = announcementRepository.findById(a.getId()).orElseThrow();
+        assertThat(still.getStatus()).isEqualTo(AnnouncementStatus.OPEN.name());
+    }
 }
 

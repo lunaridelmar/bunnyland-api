@@ -1,10 +1,12 @@
 package fur.bunnyland.bunnylandapi.service;
 
 import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.ModerateAnnouncementRequest;
+import fur.bunnyland.bunnylandapi.api.dto.announce.ModerateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.domain.*;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementRepository;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
@@ -144,6 +146,37 @@ public class AnnouncementService {
                                 "Announcement not found",
                                 "No announcement found with id " + id))
                 );
+    }
+
+    @Transactional
+    public ResponseObject<ModerateAnnouncementResponse> moderate(String bearerToken, Long id, AnnouncementStatus status) {
+        Claims claims = jwtUtil.parseAccessToken(bearerToken);
+        List<String> roles = claims.get("roles", List.class);
+
+        boolean isAdmin = roles != null && roles.contains("ADMIN");
+        if (!isAdmin) {
+            return ResponseObject.fail(
+                    new MessageError(HttpStatus.FORBIDDEN,
+                            ErrorCode.FORBIDDEN,
+                            "Forbidden",
+                            "Only admin can moderate announcements")
+            );
+        }
+
+        Announcement announcement = announcementRepository.findById(id).orElse(null);
+        if (announcement == null) {
+            return ResponseObject.fail(
+                    new MessageError(HttpStatus.NOT_FOUND,
+                            ErrorCode.ANNOUNCEMENT_NOT_FOUND,
+                            "Announcement not found",
+                            "No announcement found with id " + id)
+            );
+        }
+
+        announcement.setStatus(status.name());
+        announcementRepository.save(announcement);
+        ModerateAnnouncementResponse body = new ModerateAnnouncementResponse(announcement.getId(), status);
+        return ResponseObject.ok(body);
     }
 
     @Transactional

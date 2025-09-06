@@ -109,6 +109,48 @@ class AnnouncementControllerIntegrationTest {
     }
 
     @Test
+    void closeExpiredEndpointClosesAnnouncements() throws Exception {
+        announcementRepository.deleteAll();
+        userRepository.deleteAll();
+
+        User owner = new User();
+        owner.setEmail("owner@example.com");
+        owner.setPasswordHash("pw");
+        owner.setDisplayName("Owner");
+        owner = userRepository.save(owner);
+
+        Announcement a = new Announcement();
+        a.setOwner(owner);
+        a.setTitle("t");
+        a.setDescription("d");
+        a.setEndDate(LocalDate.now().minusDays(1));
+        announcementRepository.save(a);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"admin@example.com\",\"password\":\"pw\",\"displayName\":\"Admin\"}"))
+                .andExpect(status().isCreated());
+        User admin = userRepository.findByEmailIgnoreCase("admin@example.com").orElseThrow();
+        admin.setRoles(Set.of("ADMIN"));
+        userRepository.save(admin);
+        MvcResult login = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"admin@example.com\",\"password\":\"pw\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String token = objectMapper.readTree(login.getResponse().getContentAsString())
+                .get("body").get("body").get("accessToken").asText();
+
+        mockMvc.perform(post("/api/announcements/close-expired")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1));
+
+        Announcement closed = announcementRepository.findById(a.getId()).orElseThrow();
+        assertThat(closed.getStatus()).isEqualTo(AnnouncementStatus.CLOSED.name());
+    }
+
+    @Test
     void getReturnsAnnouncementById() throws Exception {
         announcementRepository.deleteAll();
         userRepository.deleteAll();

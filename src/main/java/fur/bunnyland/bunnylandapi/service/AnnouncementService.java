@@ -4,6 +4,7 @@ import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResponse;
 import fur.bunnyland.bunnylandapi.domain.*;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementRepository;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
@@ -92,6 +94,32 @@ public class AnnouncementService {
                         a.getCreatedAt()
                 ))
                 .toList();
+    }
+
+    @Transactional
+    public ResponseObject<CloseExpiredAnnouncementsResponse> closeExpired(String bearerToken) {
+        Claims claims = jwtUtil.parseAccessToken(bearerToken);
+        List<String> roles = claims.get("roles", List.class);
+
+        boolean isAdmin = roles != null && roles.contains("ADMIN");
+        if (!isAdmin) {
+            return ResponseObject.fail(
+                    new MessageError(HttpStatus.FORBIDDEN,
+                            ErrorCode.FORBIDDEN,
+                            "Forbidden to use",
+                            "Only admin can close expired announcements")
+            );
+        }
+
+        LocalDate today = LocalDate.now();
+        List<Announcement> expired = announcementRepository
+                .findByStatusAndEndDateBefore(AnnouncementStatus.OPEN.name(), today);
+        for (Announcement a : expired) {
+            a.setStatus(AnnouncementStatus.CLOSED.name());
+        }
+        announcementRepository.saveAll(expired);
+
+        return ResponseObject.ok(new CloseExpiredAnnouncementsResponse(expired.size()));
     }
 
     @Transactional(readOnly = true)

@@ -4,6 +4,7 @@ import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResponse;
 import fur.bunnyland.bunnylandapi.domain.*;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementRepository;
 import fur.bunnyland.bunnylandapi.repository.UserRepository;
@@ -135,6 +136,41 @@ class AnnouncementServiceTest {
         assertThat(resp.ownerId()).isEqualTo(3L);
         assertThat(resp.title()).isEqualTo("t");
         assertThat(resp.description()).isEqualTo("d");
+    }
+
+    @Test
+    void closeExpiredReturnsForbiddenForNonAdmin() {
+        String token = "token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(token)).thenReturn(claims);
+        when(claims.get("roles", List.class)).thenReturn(List.of("OWNER"));
+
+        ResponseObject<CloseExpiredAnnouncementsResponse> result = announcementService.closeExpired(token);
+
+        assertThat(result.hasError()).isTrue();
+        assertThat(result.error().status()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(announcementRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void closeExpiredClosesAnnouncementsAndReturnsCount() {
+        String token = "token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(token)).thenReturn(claims);
+        when(claims.get("roles", List.class)).thenReturn(List.of("ADMIN"));
+
+        Announcement a = new Announcement();
+        a.setEndDate(LocalDate.now().minusDays(1));
+        a.setStatus(AnnouncementStatus.OPEN.name());
+        when(announcementRepository.findByStatusAndEndDateBefore(eq(AnnouncementStatus.OPEN.name()), any(LocalDate.class)))
+                .thenReturn(List.of(a));
+
+        ResponseObject<CloseExpiredAnnouncementsResponse> result = announcementService.closeExpired(token);
+
+        assertThat(result.hasError()).isFalse();
+        assertThat(result.body().count()).isEqualTo(1);
+        assertThat(a.getStatus()).isEqualTo(AnnouncementStatus.CLOSED.name());
+        verify(announcementRepository).saveAll(List.of(a));
     }
 
     @Test

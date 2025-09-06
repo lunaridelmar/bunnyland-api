@@ -33,6 +33,10 @@ Built with **Java 21 + Spring Boot 3**.
   "email": "bunnylover@example.com",
   "password": "fluffy123"
 }
+{
+  "email": "aolani@example.com",
+  "password": "fluffy123"
+}
 ```
 
 * **Bunny profiles**

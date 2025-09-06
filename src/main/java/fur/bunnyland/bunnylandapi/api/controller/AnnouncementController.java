@@ -4,6 +4,7 @@ import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResponse;
 import fur.bunnyland.bunnylandapi.domain.ResponseObject;
 import fur.bunnyland.bunnylandapi.service.AnnouncementService;
 import jakarta.validation.Valid;
@@ -72,6 +73,26 @@ public class AnnouncementController {
         String token = authorization.substring(7);
 
         ResponseObject<DeleteAnnouncementResponse> resp = announcementService.delete(token, id);
+
+        if (resp.hasError()) {
+            return ResponseEntity.status(resp.error().status()).body(resp.error().message());
+        }
+
+        return ResponseEntity.ok(resp.body());
+    }
+
+    @PreAuthorize("hasAuthority('ADMIN') or hasRole('ADMIN')")
+    @PostMapping("/close-expired")
+    public ResponseEntity closeExpired(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
+    ) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Missing or invalid Authorization header");
+        }
+        String token = authorization.substring(7);
+
+        ResponseObject<CloseExpiredAnnouncementsResponse> resp = announcementService.closeExpired(token);
 
         if (resp.hasError()) {
             return ResponseEntity.status(resp.error().status()).body(resp.error().message());

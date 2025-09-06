@@ -1,14 +1,6 @@
 package fur.bunnyland.bunnylandapi.service;
 
-import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementRequest;
-import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
-import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.ModerateAnnouncementRequest;
-import fur.bunnyland.bunnylandapi.api.dto.announce.ModerateAnnouncementResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.*;
 import fur.bunnyland.bunnylandapi.domain.*;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementApplicationRepository;
 import fur.bunnyland.bunnylandapi.repository.AnnouncementRepository;
@@ -244,5 +236,34 @@ public class AnnouncementService {
                 saved.getCreatedAt()
         );
         return ResponseObject.ok(body);
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseObject<List<AnnouncementApplicationResponse>> listApplicationsForOwner(String bearerToken) {
+        Claims claims = jwtUtil.parseAccessToken(bearerToken);
+        Long userId = claims.get("id", Long.class);
+
+        User owner = userRepository.findById(userId).orElse(null);
+        if (owner == null) {
+            return ResponseObject.fail(
+                    new MessageError(HttpStatus.UNAUTHORIZED,
+                            ErrorCode.USER_NOT_FOUND,
+                            "User not found",
+                            "Invalid token user id")
+            );
+        }
+
+        List<AnnouncementApplicationResponse> apps = announcementApplicationRepository.findByAnnouncementOwnerId(userId)
+                .stream()
+                .map(app -> new AnnouncementApplicationResponse(
+                        app.getId(),
+                        app.getAnnouncement().getId(),
+                        app.getMessage(),
+                        app.getContact(),
+                        app.getCreatedAt()
+                ))
+                .toList();
+
+        return ResponseObject.ok(apps);
     }
 }

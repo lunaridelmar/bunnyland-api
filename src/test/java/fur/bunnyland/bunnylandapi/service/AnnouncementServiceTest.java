@@ -3,6 +3,7 @@ package fur.bunnyland.bunnylandapi.service;
 import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementApplicationResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
 import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
 import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
@@ -181,6 +182,39 @@ class AnnouncementServiceTest {
         assertThat(body.announcementId()).isEqualTo(5L);
         assertThat(body.message()).isEqualTo("hello");
         verify(announcementApplicationRepository).save(any(AnnouncementApplication.class));
+    }
+
+    @Test
+    void listApplicationsForOwnerReturnsApplications() {
+        String token = "token";
+        Claims claims = mock(Claims.class);
+        when(jwtUtil.parseAccessToken(token)).thenReturn(claims);
+        when(claims.get("id", Long.class)).thenReturn(5L);
+
+        User owner = new User();
+        owner.setId(5L);
+        when(userRepository.findById(5L)).thenReturn(Optional.of(owner));
+
+        Announcement announcement = new Announcement();
+        announcement.setId(7L);
+        announcement.setOwner(owner);
+
+        AnnouncementApplication app = new AnnouncementApplication();
+        app.setId(3L);
+        app.setAnnouncement(announcement);
+        app.setMessage("hello");
+        app.setContact("email");
+        when(announcementApplicationRepository.findByAnnouncementOwnerId(5L)).thenReturn(List.of(app));
+
+        ResponseObject<List<AnnouncementApplicationResponse>> result = announcementService.listApplicationsForOwner(token);
+
+        assertThat(result.hasError()).isFalse();
+        List<AnnouncementApplicationResponse> list = result.body();
+        assertThat(list).hasSize(1);
+        AnnouncementApplicationResponse resp = list.get(0);
+        assertThat(resp.id()).isEqualTo(3L);
+        assertThat(resp.announcementId()).isEqualTo(7L);
+        assertThat(resp.message()).isEqualTo("hello");
     }
 
     @Test

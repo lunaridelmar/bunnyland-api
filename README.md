@@ -163,8 +163,6 @@ MIT License — feel free to use, share, and improve 🐰
 
 ## 👩‍💻 Author
 
-## 👩‍💻 Author
-
 **Kateryna Yashnyk**  
 [GitHub: lunaridelmar](https://github.com/lunaridelmar) · [CV](CV.md)
 

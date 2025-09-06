@@ -213,6 +213,48 @@ class AnnouncementControllerIntegrationTest {
     }
 
     @Test
+    void listApplicationsReturnsApplicationsForOwner() throws Exception {
+        announcementApplicationRepository.deleteAll();
+        announcementRepository.deleteAll();
+        userRepository.deleteAll();
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"owner@example.com\",\"password\":\"pw\",\"displayName\":\"Owner\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult login = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"owner@example.com\",\"password\":\"pw\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String token = objectMapper.readTree(login.getResponse().getContentAsString())
+                .get("body").get("body").get("accessToken").asText();
+
+        CreateAnnouncementRequest req = new CreateAnnouncementRequest(
+                "t", "d", null, null, null, null);
+        mockMvc.perform(post("/api/announcements")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated());
+
+        Announcement a = announcementRepository.findAll().get(0);
+
+        mockMvc.perform(post("/api/announcements/" + a.getId() + "/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"hi\",\"contact\":\"email\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/announcements/applications")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].announcementId").value(a.getId()))
+                .andExpect(jsonPath("$[0].message").value("hi"));
+    }
+
+    @Test
     void deleteAllowsOwnerToRemoveAnnouncement() throws Exception {
         announcementRepository.deleteAll();
         userRepository.deleteAll();

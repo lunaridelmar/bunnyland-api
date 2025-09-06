@@ -1,14 +1,6 @@
 package fur.bunnyland.bunnylandapi.api.controller;
 
-import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementRequest;
-import fur.bunnyland.bunnylandapi.api.dto.announce.ApplyAnnouncementResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.AnnouncementResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.CloseExpiredAnnouncementsResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementRequest;
-import fur.bunnyland.bunnylandapi.api.dto.announce.CreateAnnouncementResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.DeleteAnnouncementResponse;
-import fur.bunnyland.bunnylandapi.api.dto.announce.ModerateAnnouncementRequest;
-import fur.bunnyland.bunnylandapi.api.dto.announce.ModerateAnnouncementResponse;
+import fur.bunnyland.bunnylandapi.api.dto.announce.*;
 import fur.bunnyland.bunnylandapi.domain.ResponseObject;
 import fur.bunnyland.bunnylandapi.service.AnnouncementService;
 import jakarta.validation.Valid;
@@ -133,6 +125,24 @@ public class AnnouncementController {
             return ResponseEntity.status(resp.error().status()).body(resp.error().message());
         }
 
+        return ResponseEntity.ok(resp.body());
+    }
+
+    @PreAuthorize("hasAuthority('OWNER') or hasRole('OWNER') or hasAuthority('ADMIN') or hasRole('ADMIN')")
+    @GetMapping("/applications")
+    public ResponseEntity listApplications(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
+    ) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Missing or invalid Authorization header");
+        }
+        String token = authorization.substring(7);
+
+        ResponseObject<List<AnnouncementApplicationResponse>> resp = announcementService.listApplicationsForOwner(token);
+        if (resp.hasError()) {
+            return ResponseEntity.status(resp.error().status()).body(resp.error().message());
+        }
         return ResponseEntity.ok(resp.body());
     }
 }
